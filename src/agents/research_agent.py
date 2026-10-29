@@ -51,7 +51,7 @@ class ResearchAgent(BaseAgent):
         "and delivers structured intelligence briefs."
     )
 
-    def __init__(self, config: dict | None = None, dry_run: bool = False):
+    def __init__(self, config: dict | None = None, dry_run: bool = True):
         super().__init__(config, dry_run)
         self.notion = NotionClient()
         self.slack = SlackClient()

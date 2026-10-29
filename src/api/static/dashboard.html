@@ -850,11 +850,20 @@ updateClock();
 // ─────────────────────────────────────────────
 // WebSocket
 // ─────────────────────────────────────────────
+let adminToken = '';
+function requireToken() {
+  if (!adminToken) adminToken = window.prompt('Enter the admin API token to connect. It stays in memory for this tab.') || '';
+  return adminToken;
+}
+function authHeaders() {
+  return { Authorization: `Bearer ${requireToken()}` };
+}
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(`${proto}//${location.host}/ws`);
 
   ws.onopen = () => {
+    ws.send(JSON.stringify({ token: requireToken() }));
     document.getElementById('wsDot').classList.add('connected');
     document.getElementById('wsStatus').textContent = 'live';
     toast('Connected to live feed', 'success');
@@ -866,9 +875,13 @@ function connectWS() {
     if (msg.event === 'agent_run_complete') handleRunComplete(msg.data);
   };
 
-  ws.onclose = () => {
+  ws.onclose = (event) => {
     document.getElementById('wsDot').classList.remove('connected');
     document.getElementById('wsStatus').textContent = 'reconnecting...';
+    if (event.code === 1008) {
+      document.getElementById('wsStatus').textContent = 'authentication required — reload to reconnect';
+      return;
+    }
     setTimeout(connectWS, 3000);
   };
 
@@ -880,18 +893,19 @@ function connectWS() {
 // ─────────────────────────────────────────────
 async function fetchStatus() {
   try {
-    const r = await fetch('/api/status');
+    const r = await fetch('/api/status', { headers: authHeaders() });
+    if (!r.ok) throw new Error('Authentication required or server unavailable');
     const data = await r.json();
     handleStatus(data);
   } catch (e) {
-    // Use mock data when server isn't running
-    loadMockData();
+    toast('Cannot load live status. Check your admin token and server.', 'error');
   }
 }
 
 async function fetchRuns() {
   try {
-    const r = await fetch('/api/runs?limit=20');
+    const r = await fetch('/api/runs?limit=20', { headers: authHeaders() });
+    if (!r.ok) throw new Error('Cannot load run history');
     const data = await r.json();
     renderRunHistory(data);
   } catch(e) {}
@@ -900,7 +914,8 @@ async function fetchRuns() {
 async function triggerAgent(name) {
   try {
     toast(`Triggering ${name}...`, 'info');
-    const r = await fetch(`/api/trigger/${name}`, { method: 'POST' });
+    const r = await fetch(`/api/trigger/${name}`, { method: 'POST', headers: authHeaders() });
+    if (!r.ok) throw new Error('Trigger rejected');
     const data = await r.json();
     toast(`${name} completed: ${data.status}`, data.status === 'success' ? 'success' : 'error');
     addFeedItem({ agent: name, status: data.status, ...data });

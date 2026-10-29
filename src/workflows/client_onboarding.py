@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
 
 import structlog
 
@@ -38,6 +37,7 @@ class ClientProfile:
     notion_workspace_url: str = ""
     welcome_email_sent: bool = False
     kickoff_scheduled: bool = False
+    welcome_email_draft: str = ""
 
 
 ONBOARDING_EMAIL_PROMPT = """
@@ -68,7 +68,7 @@ Return only valid JSON.
 class ClientOnboardingWorkflow:
     """Orchestrates the full client onboarding sequence."""
 
-    def __init__(self, dry_run: bool = False):
+    def __init__(self, dry_run: bool = True):
         self.dry_run = dry_run
         self.llm = LLMClient()
         self.notion = NotionClient()
@@ -156,7 +156,7 @@ class ClientOnboardingWorkflow:
             "Write the welcome email."
         )
 
-        email_body = await self.llm.complete(
+        client.welcome_email_draft = await self.llm.complete(
             prompt=prompt, system=ONBOARDING_EMAIL_PROMPT, max_tokens=400
         )
 
@@ -164,7 +164,8 @@ class ClientOnboardingWorkflow:
             # In production: send via SendGrid / Gmail API
             self.log.info("welcome_email_sent", to=client.email)
 
-        client.welcome_email_sent = True
+        # Sending is not implemented; a generated draft is not a delivery receipt.
+        client.welcome_email_sent = False
         self.log.info("welcome_email_drafted", client=client.name)
 
     async def _notify_internal_team(self, client: ClientProfile) -> None:

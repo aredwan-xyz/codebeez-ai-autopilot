@@ -75,7 +75,7 @@ class LeadAgent(BaseAgent):
         "and routes qualified leads to the CRM with a personalised outreach draft."
     )
 
-    def __init__(self, config: dict | None = None, dry_run: bool = False):
+    def __init__(self, config: dict | None = None, dry_run: bool = True):
         super().__init__(config, dry_run)
         self.airtable = AirtableClient()
         self.hubspot = HubSpotClient()
@@ -130,7 +130,7 @@ class LeadAgent(BaseAgent):
             "total_leads": len(raw_leads),
             "qualified": len(qualified_leads),
             "avg_score": (
-                sum(l.score for l in [Lead(id="", name="", company="", email="")] + qualified_leads)
+                sum(lead.score for lead in qualified_leads)
                 / max(len(raw_leads), 1)
             ),
             "routed_to": self.crm_target,

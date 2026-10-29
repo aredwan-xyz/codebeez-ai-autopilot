@@ -1,10 +1,14 @@
 """Notion Integration"""
 from __future__ import annotations
-from datetime import datetime, date
+
+from datetime import date
 from typing import Any
+
 import httpx
 import structlog
+
 from src.config.settings import settings
+from src.security import require_live_approval
 
 logger = structlog.get_logger("notion")
 
@@ -49,6 +53,7 @@ class NotionClient:
             return resp.json().get("results", [])
 
     async def mark_content_published(self, page_id: str, publish_url: str) -> None:
+        require_live_approval()
         async with httpx.AsyncClient() as client:
             await client.patch(
                 f"{self.BASE_URL}/pages/{page_id}",
@@ -62,6 +67,7 @@ class NotionClient:
             )
 
     async def create_lead_record(self, data: dict[str, Any]) -> dict:
+        require_live_approval()
         db_id = settings.NOTION_DATABASE_ID_LEADS
         if not db_id:
             return {}

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, patch
 
 
 class TestLeadPipeline:
@@ -36,6 +37,7 @@ class TestLeadPipeline:
         ])
 
         # Mock integrations
+        pipeline.lead_agent.llm = pipeline.llm
         pipeline.slack.post_message = AsyncMock()
         pipeline.lead_agent.hubspot = AsyncMock()
         pipeline.lead_agent.hubspot.create_contact = AsyncMock(return_value={"id": "hs_001"})
@@ -75,6 +77,7 @@ class TestLeadPipeline:
             # low score
             '{"score":30,"breakdown":{"role_fit":5,"industry_fit":5,"company_size_fit":10,"geography_fit":5,"intent_signals":5},"qualified":false,"reasoning":"Poor ICP fit.","outreach_angle":""}',
         ])
+        pipeline.lead_agent.llm = pipeline.llm
         pipeline.slack.post_message = AsyncMock()
 
         result = await pipeline.run(self._make_valid_lead())

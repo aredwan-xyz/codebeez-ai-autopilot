@@ -2,9 +2,11 @@
 Slack Integration
 """
 from __future__ import annotations
-from pathlib import Path
+
 import structlog
+
 from src.config.settings import settings
+from src.security import require_live_approval
 
 logger = structlog.get_logger("slack")
 
@@ -23,6 +25,7 @@ class SlackClient:
         return self._client
 
     async def post_message(self, channel: str, text: str) -> None:
+        require_live_approval()
         if not self.token:
             self.log.warning("slack_token_missing")
             return
@@ -30,6 +33,7 @@ class SlackClient:
         await client.chat_postMessage(channel=channel, text=text)
 
     async def post_file(self, channel: str, message: str, file_path: str, filename: str) -> None:
+        require_live_approval()
         if not self.token:
             return
         client = self._get_client()

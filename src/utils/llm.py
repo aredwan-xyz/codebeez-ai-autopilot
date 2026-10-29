@@ -5,7 +5,6 @@ LLM Client — Unified wrapper for Anthropic and OpenAI with retry logic.
 from __future__ import annotations
 
 import asyncio
-from functools import lru_cache
 from typing import Any
 
 import structlog

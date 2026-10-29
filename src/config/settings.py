@@ -3,6 +3,7 @@ Settings — Pydantic-based environment configuration.
 """
 
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +21,8 @@ class Settings(BaseSettings):
     APP_SECRET_KEY: str = "dev-secret-change-me"
     LOG_LEVEL: str = "INFO"
     DASHBOARD_PORT: int = 8000
+    ADMIN_API_TOKEN: str = ""
+    ENABLE_LIVE_ACTIONS: bool = False
 
     # Database
     DATABASE_URL: str = "sqlite:///./autopilot.db"
