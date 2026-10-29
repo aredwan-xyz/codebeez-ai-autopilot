@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from src.agents.base_agent import BaseAgent
+from src.agents.content_agent import ContentAgent, ContentItem, ContentType
 from src.api import server
 from src.config.settings import Settings, settings
 from src.integrations.airtable import AirtableClient
@@ -40,6 +41,27 @@ AUTH = {"Authorization": "Bearer test-admin-token"}
 def test_non_ascii_token_denied(monkeypatch):
     monkeypatch.setattr(settings, "ADMIN_API_TOKEN", "test-admin-token")
     assert valid_admin_token("invalid-\u2603") is False
+
+
+@pytest.mark.asyncio
+async def test_content_preview_does_not_approve_publication():
+    agent = ContentAgent(config={"auto_publish": False}, dry_run=False)
+    agent.slack.post_message = AsyncMock()
+    item = ContentItem(id="draft", title="Draft", content_type=ContentType.LINKEDIN_POST,
+                       brief="Example", platform="linkedin")
+    assert await agent._request_approval(item) is False
+    agent.slack.post_message.assert_awaited_once()
+    assert item.published is False
+
+
+@pytest.mark.asyncio
+async def test_placeholder_publishers_cannot_claim_success():
+    agent = ContentAgent(config={}, dry_run=False)
+    item = ContentItem(id="draft", title="Draft", content_type=ContentType.LINKEDIN_POST,
+                       brief="Example", platform="linkedin")
+    with pytest.raises(NotImplementedError):
+        await agent._publish(item)
+    assert item.published is False
 
 
 @pytest.mark.parametrize("path", ["/api/status", "/api/runs", "/api/agents"])
