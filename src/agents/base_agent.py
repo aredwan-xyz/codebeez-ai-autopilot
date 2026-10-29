@@ -9,7 +9,6 @@ Every agent inherits from BaseAgent and implements:
 
 from __future__ import annotations
 
-import time
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -20,7 +19,6 @@ from typing import Any
 import structlog
 
 from src.utils.llm import LLMClient
-from src.utils.retry import with_retry
 
 logger = structlog.get_logger(__name__)
 
@@ -87,7 +85,7 @@ class BaseAgent(ABC):
     description: str = ""
     version: str = "1.0.0"
 
-    def __init__(self, config: dict | None = None, dry_run: bool = False):
+    def __init__(self, config: dict | None = None, dry_run: bool = True):
         self.config = config or {}
         self.dry_run = dry_run
         self.llm = LLMClient()

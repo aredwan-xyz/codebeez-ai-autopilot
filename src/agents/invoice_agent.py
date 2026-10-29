@@ -11,7 +11,6 @@ Capabilities:
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
@@ -65,7 +64,7 @@ class InvoiceAgent(BaseAgent):
         "and escalates critical accounts to Slack."
     )
 
-    def __init__(self, config: dict | None = None, dry_run: bool = False):
+    def __init__(self, config: dict | None = None, dry_run: bool = True):
         super().__init__(config, dry_run)
         self.stripe = StripeClient()
         self.slack = SlackClient()

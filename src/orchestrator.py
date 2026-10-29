@@ -19,12 +19,12 @@ import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from src.agents.base_agent import AgentRun, AgentStatus, BaseAgent
+from src.agents.base_agent import AgentRun, BaseAgent
 from src.agents.content_agent import ContentAgent
 from src.agents.email_agent import EmailAgent
 from src.agents.lead_agent import LeadAgent
 from src.agents.report_agent import ReportAgent
-from src.config.settings import settings
+from src.security import approved_execution
 
 logger = structlog.get_logger("orchestrator")
 
@@ -39,7 +39,7 @@ AGENT_REGISTRY: dict[str, type[BaseAgent]] = {
 class Orchestrator:
     """Manages all agents and their schedules."""
 
-    def __init__(self, config_path: str = "src/config/agents.yaml", dry_run: bool = False):
+    def __init__(self, config_path: str = "src/config/agents.yaml", dry_run: bool = True):
         self.config_path = config_path
         self.dry_run = dry_run
         self.scheduler = AsyncIOScheduler()
@@ -99,7 +99,7 @@ class Orchestrator:
     # Agent execution
     # ------------------------------------------------------------------
 
-    async def _run_agent(self, agent_name: str) -> AgentRun | None:
+    async def _run_agent(self, agent_name: str, *, live: bool = False) -> AgentRun | None:
         """Execute a single agent by name."""
         agent = self.active_agents.get(agent_name)
         if not agent:
@@ -107,7 +107,15 @@ class Orchestrator:
             return None
 
         self.log.info("agent_triggered", name=agent_name, source="scheduler")
-        run = await agent.execute()
+        if live:
+            # A new instance prevents approved state leaking to concurrent or
+            # subsequent scheduled executions of the shared agent.
+            live_agent = type(agent)(config=agent.config, dry_run=False)
+            with approved_execution():
+                run = await live_agent.execute()
+            agent._last_run = run
+        else:
+            run = await agent.execute()
 
         self.run_history.append(run)
         # Keep history bounded
@@ -117,10 +125,10 @@ class Orchestrator:
         await self._broadcast_event("agent_run_complete", run.to_dict())
         return run
 
-    async def trigger(self, agent_name: str) -> AgentRun | None:
+    async def trigger(self, agent_name: str, *, live: bool = False) -> AgentRun | None:
         """Manually trigger an agent outside its schedule."""
         self.log.info("agent_manual_trigger", name=agent_name)
-        return await self._run_agent(agent_name)
+        return await self._run_agent(agent_name, live=live)
 
     async def run_all(self) -> list[AgentRun]:
         """Run all enabled agents sequentially (useful for testing)."""
@@ -189,7 +197,7 @@ class Orchestrator:
 # CLI entrypoint
 # ------------------------------------------------------------------
 
-async def main(dry_run: bool = False):
+async def main(dry_run: bool = True):
     """Start the orchestrator and keep it running."""
     orch = Orchestrator(dry_run=dry_run)
     await orch.start()
@@ -207,7 +215,7 @@ if __name__ == "__main__":
     app = typer.Typer()
 
     @app.command()
-    def start(dry_run: bool = typer.Option(False, "--dry-run", help="Don't execute real actions")):
+    def start(dry_run: bool = typer.Option(True, "--dry-run", help="Preview actions; live writes use the approved API trigger")):
         """Start the AI Autopilot orchestrator."""
         asyncio.run(main(dry_run=dry_run))
 

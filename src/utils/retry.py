@@ -1,8 +1,10 @@
 """Retry utilities with exponential backoff."""
 from __future__ import annotations
+
 import asyncio
 import functools
 from typing import Callable, Type
+
 import structlog
 
 logger = structlog.get_logger("retry")

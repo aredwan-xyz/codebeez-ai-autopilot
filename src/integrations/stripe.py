@@ -1,7 +1,10 @@
 """Stripe Integration"""
 from __future__ import annotations
+
 from datetime import datetime
+
 import structlog
+
 from src.config.settings import settings
 
 logger = structlog.get_logger("stripe")

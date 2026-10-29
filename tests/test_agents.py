@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.agents.base_agent import AgentRun, AgentStatus, BaseAgent
 from src.agents.email_agent import EmailAgent, EmailCategory
-
 
 # ------------------------------------------------------------------
 # Concrete subclass for testing BaseAgent

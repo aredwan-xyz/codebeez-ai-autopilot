@@ -12,17 +12,25 @@ Routes:
 from __future__ import annotations
 
 import asyncio
-import json
 from pathlib import Path
+from typing import Literal, Optional
 
 import structlog
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, StrictBool
 
 from src.config.settings import settings
 from src.orchestrator import Orchestrator
+from src.security import valid_admin_token
 
 logger = structlog.get_logger("api")
 
@@ -37,10 +45,27 @@ _orchestrator: Orchestrator | None = None
 _ws_clients: list[WebSocket] = []
 
 
+@app.middleware("http")
+async def authenticate_api(request: Request, call_next):
+    if request.url.path.startswith("/api/"):
+        scheme, _, token = request.headers.get("authorization", "").partition(" ")
+        if scheme.lower() != "bearer" or not valid_admin_token(token):
+            return JSONResponse(
+                {"detail": "Valid admin bearer token required"}, status_code=401,
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    return await call_next(request)
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok" if _orchestrator else "starting"}
+
+
 @app.on_event("startup")
 async def startup():
     global _orchestrator
-    _orchestrator = Orchestrator(dry_run=settings.APP_ENV == "development")
+    _orchestrator = Orchestrator(dry_run=True)
     _orchestrator.add_event_listener(_broadcast_to_ws)
     await _orchestrator.start()
     logger.info("server_started", port=settings.DASHBOARD_PORT)
@@ -73,20 +98,29 @@ async def get_status():
 
 
 @app.get("/api/runs")
-async def get_runs(limit: int = 50):
+async def get_runs(limit: int = Query(50, ge=1, le=500)):
     if not _orchestrator:
         return []
     runs = _orchestrator.run_history[-limit:]
     return [r.to_dict() for r in reversed(runs)]
 
 
+class TriggerRequest(BaseModel):
+    mode: Literal["dry_run", "live"] = "dry_run"
+    approve_live: StrictBool = False
+
+
 @app.post("/api/trigger/{agent_name}")
-async def trigger_agent(agent_name: str):
+async def trigger_agent(agent_name: str, request: Optional[TriggerRequest] = None):
     if not _orchestrator:
         return JSONResponse({"error": "Orchestrator not initialized"}, status_code=503)
 
-    logger.info("manual_trigger", agent=agent_name)
-    run = await _orchestrator.trigger(agent_name)
+    request = request or TriggerRequest()
+    live = request.mode == "live"
+    if live and (not settings.ENABLE_LIVE_ACTIONS or not request.approve_live):
+        raise HTTPException(403, "Live mode requires server opt-in and approve_live: true")
+    logger.info("manual_trigger", agent=agent_name, live=live)
+    run = await _orchestrator.trigger(agent_name, live=live)
 
     if run is None:
         return JSONResponse({"error": f"Agent '{agent_name}' not found"}, status_code=404)
@@ -115,6 +149,17 @@ async def get_agents():
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
+    # Browser WebSockets cannot set Authorization headers. Authenticate the first
+    # frame before sending any status/history or registering for broadcasts.
+    try:
+        credentials = await asyncio.wait_for(ws.receive_json(), timeout=5)
+        token = credentials.get("token") if isinstance(credentials, dict) else None
+        if not isinstance(token, str) or not valid_admin_token(token):
+            await ws.close(code=1008)
+            return
+    except (TimeoutError, ValueError, WebSocketDisconnect):
+        await ws.close(code=1008)
+        return
     _ws_clients.append(ws)
     logger.info("ws_client_connected", total=len(_ws_clients))
 
@@ -129,8 +174,10 @@ async def websocket_endpoint(ws: WebSocket):
             await ws.send_json({"event": "ping"})
 
     except WebSocketDisconnect:
-        _ws_clients.remove(ws)
         logger.info("ws_client_disconnected", total=len(_ws_clients))
+    finally:
+        if ws in _ws_clients:
+            _ws_clients.remove(ws)
 
 
 async def _broadcast_to_ws(message: dict):

@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -39,10 +42,11 @@ jobs:
 
       - name: Run tests
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           APP_ENV: test
+          ENABLE_LIVE_ACTIONS: "false"
         run: |
           pytest tests/ -v --tb=short
+          coverage xml
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -52,7 +56,6 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     needs: test
-    if: github.ref == 'refs/heads/main'
 
     steps:
       - uses: actions/checkout@v4
@@ -62,11 +65,11 @@ jobs:
 
       - name: Test Docker image starts
         run: |
+          trap 'docker logs test-container; docker rm -f test-container' EXIT
           docker run -d --name test-container \
-            -e ANTHROPIC_API_KEY=test \
             -e APP_ENV=test \
+            -e ENABLE_LIVE_ACTIONS=false \
             -p 8000:8000 \
             ai-autopilot:latest
-          sleep 5
-          curl -f http://localhost:8000/api/status || true
-          docker stop test-container
+          curl --fail --retry 20 --retry-delay 1 --retry-connrefused http://localhost:8000/health
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/status)" = "401"

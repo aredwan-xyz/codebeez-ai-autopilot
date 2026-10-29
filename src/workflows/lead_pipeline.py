@@ -12,7 +12,6 @@ Steps:
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -74,7 +73,7 @@ class LeadPipeline:
     Designed to run as a triggered workflow (not on a schedule).
     """
 
-    def __init__(self, dry_run: bool = False):
+    def __init__(self, dry_run: bool = True):
         self.dry_run = dry_run
         self.llm = LLMClient()
         self.slack = SlackClient()

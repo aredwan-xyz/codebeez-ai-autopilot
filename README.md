@@ -1,6 +1,6 @@
 # 🤖 AI Business Autopilot System
 
-> **Autonomous AI agents that run your business operations — so you don't have to.**
+> **An experimental framework for previewing business workflows with AI agents.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -11,7 +11,9 @@
 
 ## What is This?
 
-The **AI Business Autopilot System** is a production-ready, multi-agent automation framework that connects AI reasoning with your real business tools. It handles repetitive operational workflows autonomously — from lead qualification and email triage to content publishing, invoice tracking, and client reporting.
+The **AI Business Autopilot System** is a prototype that connects AI reasoning with business-tool adapters. It includes email triage, lead scoring, content drafting and reporting workflows. Some adapters and publishing steps are placeholders; this repository does not establish production readiness or measured business outcomes.
+
+All scheduled runs and dashboard buttons preview actions by default. Live integration mutations require both a server opt-in and one authenticated, explicitly approved API trigger. Dry-run still reads configured sources and may call a paid model; use dummy data when evaluating.
 
 Built for founders, operators, and small teams who want to run lean while scaling output.
 
@@ -59,8 +61,8 @@ Built for founders, operators, and small teams who want to run lean while scalin
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/yourorg/ai-autopilot.git
-cd ai-autopilot
+git clone https://github.com/aredwan-xyz/codebeez-ai-autopilot.git
+cd codebeez-ai-autopilot
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -70,15 +72,14 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 # Fill in your API keys and integration credentials
+# Generate ADMIN_API_TOKEN locally (for example: python -c 'import secrets; print(secrets.token_urlsafe(32))')
+# Keep ENABLE_LIVE_ACTIONS=false while evaluating.
 ```
 
 ### 3. Run Your First Agent
 
 ```bash
-# Run a single agent
-python -m src.agents.email_agent --mode triage --dry-run
-
-# Start the full autopilot scheduler
+# Start the scheduler in preview mode
 python -m src.orchestrator start
 
 # Launch the dashboard
@@ -88,6 +89,22 @@ python -m src.api.server
 ### 4. Open the Dashboard
 
 Navigate to `http://localhost:8000` to view the live agent dashboard.
+Enter your admin API token when prompted; it stays in this tab's memory. Use HTTPS
+when accessing the dashboard remotely. REST clients send `Authorization: Bearer <token>`.
+An empty configured token denies all protected requests.
+
+To approve one live agent execution, first configure `ENABLE_LIVE_ACTIONS=true`,
+then send an authenticated `POST /api/trigger/<agent_name>` with JSON
+`{"mode":"live","approve_live":true}`. The approval is scoped to that execution;
+it does not enable later scheduled writes. Review the agent configuration and
+source data before approving; this is run-level approval, not per-message review.
+Standalone integration mutations outside that approved execution fail closed.
+`GET /health` is public and contains no run data.
+
+Before using customer data, validate provider access, integration behavior and
+the workflow with a reviewed test account. The CI suite uses mocks, not live
+provider credentials. Container CI verifies startup and unauthenticated denial;
+it does not validate real email, CRM or publishing delivery.
 
 ---
 

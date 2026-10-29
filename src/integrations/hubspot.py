@@ -1,10 +1,14 @@
 """HubSpot CRM Integration"""
 from __future__ import annotations
+
 from datetime import datetime
 from typing import Any
+
 import httpx
 import structlog
+
 from src.config.settings import settings
+from src.security import require_live_approval
 
 logger = structlog.get_logger("hubspot")
 
@@ -20,6 +24,7 @@ class HubSpotClient:
         return {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
 
     async def create_contact(self, data: dict[str, Any]) -> dict:
+        require_live_approval()
         payload = {
             "properties": {
                 "firstname": data.get("name", "").split()[0],

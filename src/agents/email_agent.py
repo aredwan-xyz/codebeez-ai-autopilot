@@ -19,7 +19,6 @@ from typing import Any
 from src.agents.base_agent import AgentRun, BaseAgent
 from src.integrations.gmail import GmailClient
 from src.integrations.slack import SlackClient
-from src.utils.llm import LLMClient
 
 
 class EmailCategory(str, Enum):
@@ -70,7 +69,7 @@ class EmailAgent(BaseAgent):
         "and escalates urgent messages to the team via Slack."
     )
 
-    def __init__(self, config: dict | None = None, dry_run: bool = False):
+    def __init__(self, config: dict | None = None, dry_run: bool = True):
         super().__init__(config, dry_run)
         self.gmail = GmailClient()
         self.slack = SlackClient()

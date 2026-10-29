@@ -66,7 +66,7 @@ Return only the JSON array.
 class ContentCalendarWorkflow:
     """Generates and populates a weekly content calendar in Notion."""
 
-    def __init__(self, dry_run: bool = False):
+    def __init__(self, dry_run: bool = True):
         self.dry_run = dry_run
         self.llm = LLMClient()
         self.notion = NotionClient()

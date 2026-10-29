@@ -1,9 +1,13 @@
 """Airtable Integration"""
 from __future__ import annotations
+
 from typing import Any
+
 import httpx
 import structlog
+
 from src.config.settings import settings
+from src.security import require_live_approval
 
 logger = structlog.get_logger("airtable")
 
@@ -36,6 +40,7 @@ class AirtableClient:
             return [{"id": r["id"], **r.get("fields", {})} for r in records]
 
     async def mark_processed(self, record_id: str, score: int, qualified: bool) -> None:
+        require_live_approval()
         async with httpx.AsyncClient() as client:
             await client.patch(
                 f"{self.BASE_URL}/{self.base_id}/Leads/{record_id}",
@@ -44,6 +49,7 @@ class AirtableClient:
             )
 
     async def create_qualified_lead(self, data: dict[str, Any]) -> dict:
+        require_live_approval()
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 f"{self.BASE_URL}/{self.base_id}/Qualified Leads",

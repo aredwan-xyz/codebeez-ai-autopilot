@@ -10,7 +10,6 @@ Capabilities:
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -68,7 +67,7 @@ class ReportAgent(BaseAgent):
         "and delivers a PDF report via email and Slack."
     )
 
-    def __init__(self, config: dict | None = None, dry_run: bool = False):
+    def __init__(self, config: dict | None = None, dry_run: bool = True):
         super().__init__(config, dry_run)
         self.hubspot = HubSpotClient()
         self.stripe = StripeClient()

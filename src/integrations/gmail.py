@@ -5,7 +5,6 @@ Gmail Integration — Google Gmail API client.
 from __future__ import annotations
 
 import base64
-import email
 from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Any
@@ -28,8 +27,8 @@ class GmailClient:
             return self._service
 
         from google.oauth2.credentials import Credentials
-        from google_auth_oauthlib.flow import InstalledAppFlow
         from googleapiclient.discovery import build
+
         from src.config.settings import settings
 
         creds_path = Path(settings.GOOGLE_CREDENTIALS_FILE)
@@ -121,6 +120,8 @@ class GmailClient:
 
     async def send_reply(self, thread_id: str, to: str, body: str) -> None:
         """Send a reply to a Gmail thread."""
+        from src.security import require_live_approval
+        require_live_approval()
         svc = self._get_service()
         message = MIMEText(body)
         message["to"] = to
@@ -132,6 +133,8 @@ class GmailClient:
 
     async def apply_label(self, message_id: str, label_name: str) -> None:
         """Apply a label to an email (creates label if it doesn't exist)."""
+        from src.security import require_live_approval
+        require_live_approval()
         svc = self._get_service()
         try:
             label_id = self._get_or_create_label(svc, label_name)
@@ -145,6 +148,8 @@ class GmailClient:
 
     async def archive(self, message_id: str) -> None:
         """Remove from inbox (archive)."""
+        from src.security import require_live_approval
+        require_live_approval()
         svc = self._get_service()
         svc.users().messages().modify(
             userId="me",
@@ -154,6 +159,8 @@ class GmailClient:
 
     def _get_or_create_label(self, svc, name: str) -> str:
         """Get label ID, creating it if needed."""
+        from src.security import require_live_approval
+        require_live_approval()
         labels = svc.users().labels().list(userId="me").execute().get("labels", [])
         for label in labels:
             if label["name"].lower() == name.lower():

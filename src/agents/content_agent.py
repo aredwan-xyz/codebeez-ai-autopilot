@@ -11,7 +11,6 @@ Capabilities:
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -77,7 +76,7 @@ class ContentAgent(BaseAgent):
         "then schedules and publishes to LinkedIn, Twitter, and other platforms."
     )
 
-    def __init__(self, config: dict | None = None, dry_run: bool = False):
+    def __init__(self, config: dict | None = None, dry_run: bool = True):
         super().__init__(config, dry_run)
         self.notion = NotionClient()
         self.slack = SlackClient()
@@ -187,15 +186,15 @@ class ContentAgent(BaseAgent):
         )
 
         await self.slack.post_message(channel="#content-review", text=preview)
-        # In a real implementation, this would wait for a Slack response via webhook
-        # For now, we auto-approve after posting the preview
-        return True
+        # Sending a preview is not approval. A verified per-item approval
+        # callback is not implemented, so defer publication.
+        return False
 
     async def _publish(self, item: ContentItem) -> ContentItem:
         """Publish content to the target platform."""
         if self.dry_run:
             self.log.info("dry_run_publish_skip", title=item.title)
-            item.published = True
+            item.published = False
             return item
 
         # Platform routing
@@ -210,12 +209,8 @@ class ContentAgent(BaseAgent):
 
     async def _publish_linkedin(self, item: ContentItem) -> str:
         """Publish to LinkedIn via API."""
-        # LinkedIn API integration placeholder
-        # In production: use linkedin-api or requests with OAuth token
-        self.log.info("linkedin_publish", title=item.title)
-        return f"https://linkedin.com/feed/update/urn:li:activity:placeholder_{item.id}"
+        raise NotImplementedError("LinkedIn publishing is not implemented; content remains a draft")
 
     async def _publish_twitter(self, item: ContentItem) -> str:
         """Publish to Twitter/X via API."""
-        self.log.info("twitter_publish", title=item.title)
-        return f"https://twitter.com/i/web/status/placeholder_{item.id}"
+        raise NotImplementedError("X publishing is not implemented; content remains a draft")
